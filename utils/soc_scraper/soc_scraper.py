@@ -32,9 +32,9 @@ def cacheRequest(url, func_headers, payload, cache_name,method):
         # Artificial rate limiting
         time.sleep(0.3)
         if method == "POST":
-            response = requests.post(url,headers=func_headers,data=payload)
+            response = requests.post(url,headers=func_headers,data=payload,verify=False)
         else:
-            response = requests.get(url,headers=func_headers,data=payload)
+            response = requests.get(url,headers=func_headers,data=payload,verify=False)
 
         if response.status_code == 200:
             with open(cache_path,"w") as f:
@@ -46,9 +46,9 @@ def cacheRequest(url, func_headers, payload, cache_name,method):
 def request(url, func_headers, payload,method):
     time.sleep(0.3)
     if method == "POST":
-        response = requests.post(url,headers=func_headers,data=payload)
+        response = requests.post(url,headers=func_headers,data=payload,verify=False)
     else:
-        response = requests.get(url,headers=func_headers,data=payload)
+        response = requests.get(url,headers=func_headers,data=payload,verify=False)
 
     if response.status_code == 200:
         return response.text
@@ -154,9 +154,9 @@ def getCourseSchedule(semester):
         for tr in rows:
             td = tr.find_all('td')
             row = [tr.text.strip() for tr in td]
-            instructors = td[-1].find_all('li')
-            instructors_list = [instructor.text.strip() for instructor in instructors]
-            row[-1] = instructors_list
+            # instructors = td[-1].find_all('li')
+            # instructors_list = [instructor.text.strip() for instructor in instructors]
+            # row[-1] = instructors_list
             if row[0].isnumeric():
                 courseData = getCourseData(row[0], semester)
                 row.append(courseData["description"])
@@ -165,9 +165,13 @@ def getCourseSchedule(semester):
             processedRows.append(row)
 
     # Save the tables rows into a dataframe
+    # df = pd.DataFrame(processedRows, columns=["COURSE", "COURSE TITLE", "UNITS","SEC","MINI",
+    #                               "DAYS","BEGIN","END","TEACHING LOCATION","BLDG",
+    #                               "DELIVERY MODE","INSTRUCTOR","DESCRIPTION","PREREQS",
+    #                               "COREQS"])
     df = pd.DataFrame(processedRows, columns=["COURSE", "COURSE TITLE", "UNITS","SEC","MINI",
-                                  "DAYS","BEGIN","END","TEACHING LOCATION","BLDG",
-                                  "DELIVERY MODE","INSTRUCTOR","DESCRIPTION","PREREQS",
+                                  "DAYS","BEGIN","END","TEACHING LOCATION",
+                                  "DELIVERY MODE","DESCRIPTION","PREREQS",
                                   "COREQS"])
     return df
 
@@ -260,15 +264,14 @@ def convertScheduleToExcel(df, path):
     courses = []
     current_lecture = None
 
+    df_copy["INSTRUCTOR"] = "???"
     for i, row in df_copy.iterrows():
         # We're in a case where we have multiple sections (including recitations)
         if row["COURSE"].strip() == "":
             last_row = df_copy.iloc[i-1]
-            row["COURSE"] = last_row["COURSE"]
-            row["COURSE TITLE"] = last_row["COURSE TITLE"]
-            row["UNITS"] = last_row["UNITS"]
-        if isinstance(row["INSTRUCTOR"], list):
-            row["INSTRUCTOR"] = "\n".join(row["INSTRUCTOR"])
+            df_copy.loc[i, "COURSE"] = last_row["COURSE"]
+            df_copy.loc[i, "COURSE TITLE"] = last_row["COURSE TITLE"]
+            df_copy.loc[i, "UNITS"] = last_row["UNITS"]
 
     df_copy.rename(columns={"SEC": "SECTION", "DAYS":"DAY", "BEGIN":"BEGIN TIME", "END":"END TIME", "INSTRUCTOR":"INSTRUCTORS"}, inplace=True)
     df_copy.to_excel(path, index=False, engine='openpyxl')
